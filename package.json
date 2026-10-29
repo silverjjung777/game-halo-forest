@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/serve.mjs",
-    "test": "node test-boss-rules.cjs",
+    "test": "node test-boss-rules.cjs && node test-music.cjs",
     "test:game": "node test-adventure.cjs",
     "build:local": "node build-local.mjs"
   },

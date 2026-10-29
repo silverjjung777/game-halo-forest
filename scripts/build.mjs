@@ -18,7 +18,7 @@ for(const name of ['forest.webp','forest-2.webp','boss-arena.webp','warp.webp','
   mapped['assets/'+name]=publish(name,data);
 }
 for(const name of ['character.json','devil.json','angel-victory.json','devil-victory.json'])mapped['assets/'+name]=JSON.parse(fs.readFileSync(path.join(source,'assets',name),'utf8'));
-const js='window.FOREST_ASSETS='+JSON.stringify(mapped)+';\n'+['engine.js','boss-rules.js','adventure.js'].map(file=>fs.readFileSync(path.join(source,file),'utf8')).join('\n;\n');
+const js='window.FOREST_ASSETS='+JSON.stringify(mapped)+';\n'+['engine.js','boss-rules.js','music.js','adventure.js'].map(file=>fs.readFileSync(path.join(source,file),'utf8')).join('\n;\n');
 new Function(js);
 const script=publish('game.js',js);
 const css=['style.css','adventure.css'].map(file=>fs.readFileSync(path.join(source,file),'utf8')).join('\n').replace(/@import url\([^;]+;/g,'').replace(/url\('([^']+)'\)/g,(all,url)=>mapped[url]?'url("/'+mapped[url]+'")':all);

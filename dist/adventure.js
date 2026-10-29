@@ -18,7 +18,7 @@
   let selection='angel',playMode='solo',mode='loading',loaded=false,renderer,art={},assets={};
   let players=[],score=0,kills=0,level=1,damage=10,collected=0,tick=0,elapsed=0,cameraX=0,furthest=180,regionIndex=0;
   let checkpoint={x:180,y:674},lastTime=0,accumulator=0,uiClock=0,flash=0,trail=[],trailClock=0;
-  let dialogue=[],dialogueIndex=0,afterDialogue=null,activeBoss=null,toastTimer,muted=true,audio,ambientTimer=0,separationToast=0;
+  let dialogue=[],dialogueIndex=0,afterDialogue=null,activeBoss=null,toastTimer,muted=false,audio,music,separationToast=0;
   const terrain=[
     {x:59,x2:296,y:674,id:'home'}, {x:306,x2:486,y:544,id:'step'},
     {x:465,x2:704,y:455,id:'center'}, {x:699,x2:870,y:467,id:'bridge'},
@@ -64,7 +64,8 @@
     renderer.art=art;
   }
   function toast(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3300);}
-  function ensureAudio(){if(muted)return;if(!audio){const A=window.AudioContext||window.webkitAudioContext;if(A)audio=new A();}if(audio?.state==='suspended')audio.resume().catch(()=>{});}
+  function ensureAudio(){if(muted)return;if(!audio){const A=window.AudioContext||window.webkitAudioContext;if(A){audio=new A();music=new window.ForestMusic(audio);}}if(audio?.state==='suspended')audio.resume().catch(()=>{});syncMusic();}
+  function syncMusic(){if(!music)return;music.setMuted(muted);if(muted||document.hidden||['intro','loading','error','paused','gameover'].includes(mode)){music.pause();return;}music.setScene(mode==='victory'?'victory':regionIndex===2?'boss':regionIndex===1?'garden':'forest');music.duck(mode==='dialogue');music.resume();}
   function tone(f,d=.2,v=.02,type='sine',delay=0){if(muted||!audio)return;const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime+delay;o.type=type;o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+d+.02);}
   function burst(x,y,color=[1,.8,.4],n=14){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=30+Math.random()*100,life=.3+Math.random()*.5;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,max:life,size:1+Math.random()*3,color});}}
   function label(x,y,text,color='#f2d79b'){labels.push({x,y,text,color,life:1});}
@@ -88,6 +89,7 @@
     if(activeBoss){$('boss-health').textContent='몸통 '+activeBoss.bodyHits+' / 20';$('boss-fill').style.width=Math.max(0,activeBoss.hp/activeBoss.maxHp*100)+'%';$('boss-hud').classList.toggle('enraged',activeBoss.phase===2);$('boss-name').textContent=activeBoss.phase===2?'흑염의 거대 뱀 · 녹스 — 분노':'흑염의 거대 뱀 · 녹스';}
     host.dataset.mode=mode;host.dataset.players=playMode==='coop'?'2':'1';host.dataset.kills=String(kills);host.dataset.level=String(level);host.dataset.region=String(regionIndex+1);
     canvas.dataset.playerX=String(Math.round(players[0]?.x||0));canvas.dataset.playerY=String(Math.round(players[0]?.y||0));
+    syncMusic();
   }
   function reset(){
     keys.clear();score=kills=collected=0;level=1;damage=10;elapsed=0;cameraX=0;furthest=180;regionIndex=0;checkpoint={x:180,y:674};activeBoss=null;flash=0;trail=[];trailClock=0;warpElapsed=0;warpMoved=false;
@@ -248,7 +250,6 @@
       for(const p of players)if(Math.abs(p.x-b.x)<135&&p.y>b.y-185&&p.y<b.y+40)hurt(p,1,b.x);
     }
     for(let i=hostileShots.length-1;i>=0;i--){const s=hostileShots[i];s.life-=dt;s.x+=s.vx*dt;s.y+=s.vy*dt;for(const p of players)if(p.hp>0&&Math.hypot(s.x-p.x,s.y-(p.y-38))<s.size/2+23&&p.invuln<=0){hurt(p,1,s.x);s.life=0;break;}if(s.life<=0)hostileShots.splice(i,1);}
-    ambientTimer+=dt;if(ambientTimer>6){ambientTimer=0;tone([261.63,329.63,392][Math.floor(Math.random()*3)],2,.006);}
     uiClock+=dt;if(uiClock>.1){uiClock=0;updateHUD();}
   }
   function drawPlayer(p){
@@ -302,13 +303,13 @@
   }
   function release(code){if(code==='KeyW'){keys.delete('KeyW');code='KeyF';}keys.delete(code);for(const p of players)if(code===inputFor(p).jump&&p.vy< -220)p.vy=-220;}
   addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyP','KeyE','KeyF','KeyG','KeyA','KeyD','KeyW','KeyS'].includes(e.code))e.preventDefault();if(e.code==='KeyR'&&!e.repeat&&loaded){home();return;}if(!e.repeat)press(e.code);});
-  addEventListener('keyup',e=>release(e.code));addEventListener('blur',()=>{keys.clear();pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();pause();}});
+  addEventListener('keyup',e=>release(e.code));addEventListener('blur',()=>{keys.clear();pause();music?.pause();});addEventListener('focus',syncMusic);document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();pause();music?.pause();}else syncMusic();});
   document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{playMode=b.dataset.mode;updateSelection();}));
   document.querySelectorAll('[data-character]').forEach(b=>b.addEventListener('click',()=>{selection=b.dataset.character;updateSelection();}));
   $('start').addEventListener('click',()=>{if(loaded)reset();});$('dialogue-next').addEventListener('click',nextLine);$('resume').addEventListener('click',resume);$('restart').addEventListener('click',home);$('reselect').addEventListener('click',home);$('retry').addEventListener('click',reviveAtCheckpoint);
   $('continue').addEventListener('click',()=>{$('finish').classList.add('hidden');mode='playing';keys.clear();regionIndex=1;cameraX=W;activeBoss=null;checkpoint={x:warp.x-100,y:warp.y};players.forEach((p,i)=>Object.assign(p,{x:checkpoint.x+i*32,y:warp.y,vx:0,vy:0,grounded:true,invuln:2,downTime:0}));trail=[];startDialogue([['devil','해냈다! 워프를 타고 폭포의 정원으로 돌아왔어.'],['angel','우리의 힘이 함께여서 가능했어. 이제 숲이 다시 평화로워졌어!']]);});
   document.querySelector('.brand').addEventListener('click',e=>{e.preventDefault();home();});
-  $('sound').addEventListener('click',()=>{muted=!muted;ensureAudio();$('sound').setAttribute('aria-pressed',!muted);$('sound').setAttribute('aria-label',muted?'소리 켜기':'소리 끄기');$('sound').textContent=muted?'♪':'♫';if(!muted)tone(659,.3,.025);});
+  $('sound').addEventListener('click',()=>{muted=!muted;ensureAudio();syncMusic();$('sound').setAttribute('aria-pressed',!muted);$('sound').setAttribute('aria-label',muted?'음악과 효과음 켜기':'음악과 효과음 끄기');$('sound').textContent=muted?'♪':'♫';if(!muted)tone(659,.3,.025);});
   $('fullscreen').addEventListener('click',()=>{const p=document.fullscreenElement?document.exitFullscreen?.():host.requestFullscreen?.();p?.catch(()=>toast('이 창에서는 전체 화면을 사용할 수 없어요.'));});
   document.querySelectorAll('[data-key]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);press(b.dataset.key);ensureAudio();});for(const type of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(type,()=>release(b.dataset.key));});
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();pause();toast('그래픽 연결 복구 중입니다.');});canvas.addEventListener('webglcontextrestored',()=>location.reload());

@@ -22,6 +22,7 @@ function press(codes,seconds=.01,settle=.22){codes.forEach(c=>event('keydown',c)
 const position=()=>({x:Number(element('world').dataset.playerX),y:Number(element('world').dataset.playerY),region:Number(element('game').dataset.region),mode:element('game').dataset.mode});
 async function run(){
   for(let i=0;i<12;i++)await new Promise(r=>setImmediate(r));assert.equal(element('start').disabled,false,'all map and animation assets load');
+  assert.equal(audioCreated,0,'page loading never starts audio before a gesture');element('sound').click();
   element('start').click();for(let i=0;i<3;i++)press(['KeyE']);
   press(['ArrowRight','Space','KeyP'],.73,.35);
   press(['ArrowRight','Space','KeyP'],.73,.35);
